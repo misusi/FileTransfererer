@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.2.32630.192
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileTransfererer", "FileTransfererer\FileTransfererer.csproj", "{4DCE2BFF-F752-4A11-B800-A2107C12B3E1}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FileTransferererServer", "FileTransfererer\FileTransferererServer.csproj", "{4DCE2BFF-F752-4A11-B800-A2107C12B3E1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileTransferererClient", "FileTransferererClient\FileTransferererClient.csproj", "{C6966BB6-2D71-4248-BC7A-C50B7C5895DE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{4DCE2BFF-F752-4A11-B800-A2107C12B3E1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4DCE2BFF-F752-4A11-B800-A2107C12B3E1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4DCE2BFF-F752-4A11-B800-A2107C12B3E1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C6966BB6-2D71-4248-BC7A-C50B7C5895DE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C6966BB6-2D71-4248-BC7A-C50B7C5895DE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C6966BB6-2D71-4248-BC7A-C50B7C5895DE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C6966BB6-2D71-4248-BC7A-C50B7C5895DE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

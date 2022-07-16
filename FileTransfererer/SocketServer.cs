@@ -13,10 +13,11 @@ namespace FileTransfererer
         private readonly Socket listener;
         public SocketServer(int port)
         {
-            IPEndPoint listenerEndpoint = new IPEndPoint(IPAddress.Loopback, port);
+            // If receiving... Listen IPAddress.Any
+            IPEndPoint listenerEndpoint = new IPEndPoint(IPAddress.Any, port);
             listener = new Socket(SocketType.Stream, ProtocolType.Tcp);
             listener.Bind(listenerEndpoint);
-            listener.Listen(1);
+            listener.Listen(2);
             listener.BeginAccept(Accept, null);
         }
         public void Stop()

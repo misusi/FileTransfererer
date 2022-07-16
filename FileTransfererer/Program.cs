@@ -1,161 +1,118 @@
-﻿using FileTransfererer;
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
-public class SocketListener
+namespace FileTransferererServer
 {
-    private static List<string> pathList = new List<string>();
-    private static string listPath = string.Empty;
-    private static readonly int TRANSFER_PORT = 666;
-    private static string partnerAddress = "000.000.000.000";
-    private static IPAddress localIp = IPAddress.Any;
-    private static IPAddress targetIp;
-    private static TcpClient socket;
-
-    private static int _kport = 666;
-
-    public static event Action<string> MessageReceieved;
-
-    public static int Main(String[] args)
+    class Program
     {
-        //ReadArgv();
-        //if (listPath != string.Empty)
-        //{
-        //    ReadListFromFile(listPath);
-        //    if (pathList.Count > 0)
-        //    {
-        //        OpenLocalSocket();
-        //        SendFiles();
-        //    }
-        //    //CloseLocalSocket();
-        //}
+        private static readonly Socket serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        private static readonly List<Socket> clientSockets = new List<Socket>();
+        private const int BUFFER_SIZE = 2048;
+        private const int PORT = 100;
+        private static readonly byte[] buffer = new byte[BUFFER_SIZE];
 
-        SocketServer server = new SocketServer(_kport);
-        Socket remote = new Socket(SocketType.Stream, ProtocolType.Tcp);
-        IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Loopback, _kport);
-
-        remote.Connect(remoteEndPoint);
-
-        using (NetworkStream stream = new NetworkStream(remote))
-        using (StreamReader reader = new StreamReader(stream))
-        using (StreamWriter writer = new StreamWriter(stream))
+        static void Main()
         {
-            Task receiveTask = _Receive(reader);
-            string text;
+            Console.Title = "Server";
+            SetupServer();
+            Console.ReadLine(); // When we press enter close everything
+            CloseAllSockets();
+        }
 
-            Console.WriteLine("CLIENT: connected. Enter text to send...");
+        private static void SetupServer()
+        {
+            Console.WriteLine("Setting up server...");
+            serverSocket.Bind(new IPEndPoint(IPAddress.Any, PORT));
+            serverSocket.Listen(0);
+            serverSocket.BeginAccept(AcceptCallback, null);
+            Console.WriteLine("Server setup complete");
+        }
 
-            while ((text = Console.ReadLine()) != "")
+        /// <summary>
+        /// Close all connected client (we do not need to shutdown the server socket as its connections
+        /// are already closed with the clients).
+        /// </summary>
+        private static void CloseAllSockets()
+        {
+            foreach (Socket socket in clientSockets)
             {
-                writer.WriteLine(text);
-                writer.Flush();
+                socket.Shutdown(SocketShutdown.Both);
+                socket.Close();
             }
 
-            remote.Shutdown(SocketShutdown.Send);
-            receiveTask.Wait();
+            serverSocket.Close();
         }
 
-        server.Stop();
-
-        return 0;
-    }
-
-    private static async Task _Receive(StreamReader reader)
-    {
-        string receiveText;
-
-        while ((receiveText = await reader.ReadLineAsync()) != null)
+        private static void AcceptCallback(IAsyncResult AR)
         {
-            Console.WriteLine("CLIENT: received \"" + receiveText + "\"");
-        }
+            Socket socket;
 
-        Console.WriteLine("CLIENT: end-of-stream");
-    }
-
-    private static void ReadThread()
-    {
-        NetworkStream netStream = socket.GetStream();
-        while(socket.Connected)
-        {
-            byte[] bytes = new byte[socket.ReceiveBufferSize];
-            netStream.Read(bytes, 0, (int)socket.ReceiveBufferSize);
-            MessageReceieved(Encoding.UTF8.GetString(bytes));
-        }
-    }
-
-    private static void ReadArgv()
-    {
-        string[] argv = Environment.GetCommandLineArgs();
-        for (int i = 0; i < argv.Length; i++)
-        {
-            if (argv[i] == "-l" || argv[i] == "--list")
+            try
             {
-                if(i < argv.Length-1)
-                {
-                    listPath = argv[++i];
-                }
+                socket = serverSocket.EndAccept(AR);
             }
-            if (argv[i] == "-i" || argv[i] == "--ip")
+            catch (ObjectDisposedException) // I cannot seem to avoid this (on exit when properly closing sockets)
             {
-                if (i < argv.Length - 1)
-                {
-                    partnerAddress = argv[++i];
-                }
+                return;
             }
-            //if (argv[i] == "-w" || argv[i] == "--window")
-            //{
-            //    OpenFileDialog op;
-            //}
+
+            clientSockets.Add(socket);
+            socket.BeginReceive(buffer, 0, BUFFER_SIZE, SocketFlags.None, ReceiveCallback, socket);
+            Console.WriteLine("Client connected, waiting for request...");
+            serverSocket.BeginAccept(AcceptCallback, null);
         }
-    }
 
-    private static List<string> ReadListFromFile(string filePath)
-    {
-
-        try
+        private static void ReceiveCallback(IAsyncResult AR)
         {
-            var sr = new StreamReader(filePath);
-            while(!sr.EndOfStream)
+            Socket current = (Socket)AR.AsyncState;
+            int received;
+
+            try
             {
-                string? line = sr.ReadLine();
-                if (line != null)
-                {
-                    pathList.Add(line.Trim('"'));
-                }
+                received = current.EndReceive(AR);
             }
+            catch (SocketException)
+            {
+                Console.WriteLine("Client forcefully disconnected");
+                // Don't shutdown because the socket may be disposed and its disconnected anyway.
+                current.Close();
+                clientSockets.Remove(current);
+                return;
+            }
+
+            byte[] recBuf = new byte[received];
+            Array.Copy(buffer, recBuf, received);
+            string text = Encoding.ASCII.GetString(recBuf);
+            Console.WriteLine("Received Text: " + text);
+
+            if (text.ToLower() == "get time") // Client requested time
+            {
+                Console.WriteLine("Text is a get time request");
+                byte[] data = Encoding.ASCII.GetBytes(DateTime.Now.ToLongTimeString());
+                current.Send(data);
+                Console.WriteLine("Time sent to client");
+            }
+            else if (text.ToLower() == "exit") // Client wants to exit gracefully
+            {
+                // Always Shutdown before closing
+                current.Shutdown(SocketShutdown.Both);
+                current.Close();
+                clientSockets.Remove(current);
+                Console.WriteLine("Client disconnected");
+                return;
+            }
+            else
+            {
+                Console.WriteLine("Text is an invalid request");
+                byte[] data = Encoding.ASCII.GetBytes("Invalid request");
+                current.Send(data);
+                Console.WriteLine("Warning Sent");
+            }
+
+            current.BeginReceive(buffer, 0, BUFFER_SIZE, SocketFlags.None, ReceiveCallback, current);
         }
-        catch(IOException e)
-        {
-            Console.WriteLine("The file could not be read: " + e.Message);
-        }
-
-        return pathList;
-    }
-
-    private static void SendFiles()
-    {
-        NetworkStream netStream = socket.GetStream();
-        while(socket.Connected)
-        {
-            byte[] bytes = new byte[socket.ReceiveBufferSize];
-            netStream.Read(bytes, 0, (int)socket.ReceiveBufferSize);
-            MessageReceieved(Encoding.UTF8.GetString(bytes));
-        }
-    }
-
-    private static void OpenLocalSocket()
-    {
-        socket = new TcpClient(partnerAddress.ToString(), TRANSFER_PORT);
-        Thread listenThread = new Thread(ReadThread);
-        listenThread.Start();
-    }
-    private static void EstablishRemoteConnection()
-    {
-    }
-
-    private static void CloseLocalSocket()
-    {
     }
 }
