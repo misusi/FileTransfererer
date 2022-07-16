@@ -9,17 +9,28 @@ namespace FileTransferererClient
     {
         private static readonly Socket ClientSocket = new Socket
             (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        private static List<string> pathList = new List<string>();
+        private static string listPath = string.Empty;
+        private static IPAddress serverIP = IPAddress.None;
 
-        private const int PORT = 100;
+        private const int PORT = 666;
 
         static void Main()
         {
             Console.Title = "Client";
-            IPAddress serverIP = PromptForIP();
-            if (serverIP != IPAddress.None)
+            ReadArgv();
+            if (listPath != string.Empty)
             {
-                ConnectToServer(serverIP);
-                RequestLoop();
+                ReadListFromFile(listPath);
+                if (serverIP == IPAddress.None)
+                {
+                    serverIP = PromptForIP();
+                }
+                if (serverIP != IPAddress.None)
+                {
+                    ConnectToServer(serverIP);
+                    RequestLoop();
+                }
             }
             Exit();
         }
@@ -32,7 +43,7 @@ namespace FileTransferererClient
             {
                 serverIP = IPAddress.Parse(Console.ReadLine());
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 serverIP = IPAddress.None;
             }
@@ -48,7 +59,7 @@ namespace FileTransferererClient
                 try
                 {
                     attempts++;
-                    Console.WriteLine("Connection attempt " + attempts);
+                    Console.WriteLine("Connecting to " + serverIP.ToString() + ":" + PORT + ": attempt " + attempts);
                     // Change IPAddress.Loopback to a remote IP to connect to a remote host.
                     ClientSocket.Connect(serverIP, PORT);
                 }
@@ -114,6 +125,55 @@ namespace FileTransferererClient
             Array.Copy(buffer, data, received);
             string text = Encoding.ASCII.GetString(data);
             Console.WriteLine(text);
+        }
+
+        private static void ReadArgv()
+        {
+            string[] argv = Environment.GetCommandLineArgs();
+            for (int i = 0; i < argv.Length; i++)
+            {
+                if (argv[i] == "-l" || argv[i] == "--list")
+                {
+                    if (i < argv.Length - 1)
+                    {
+                        listPath = argv[++i];
+                    }
+                }
+                if (argv[i] == "-i" || argv[i] == "--ip")
+                {
+                    if (i < argv.Length - 1)
+                    {
+                        serverIP = IPAddress.Parse(argv[++i]);
+                    }
+                }
+                //if (argv[i] == "-w" || argv[i] == "--window")
+                //{
+                //    OpenFileDialog op;
+                //}
+            }
+        }
+
+        private static List<string> ReadListFromFile(string filePath)
+        {
+
+            try
+            {
+                var sr = new StreamReader(filePath);
+                while (!sr.EndOfStream)
+                {
+                    string? line = sr.ReadLine();
+                    if (line != null)
+                    {
+                        pathList.Add(line.Trim('"'));
+                    }
+                }
+            }
+            catch (IOException e)
+            {
+                Console.WriteLine("The file could not be read: " + e.Message);
+            }
+
+            return pathList;
         }
     }
 }

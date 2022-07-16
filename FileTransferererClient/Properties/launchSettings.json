@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "FileTransferererClient": {
+      "commandName": "Project",
+      "commandLineArgs": "-l list.txt -i 10.0.0.120"
+    }
+  }
+}
