@@ -15,12 +15,31 @@ namespace FileTransferererClient
         static void Main()
         {
             Console.Title = "Client";
-            ConnectToServer();
-            RequestLoop();
+            IPAddress serverIP = PromptForIP();
+            if (serverIP != IPAddress.None)
+            {
+                ConnectToServer(serverIP);
+                RequestLoop();
+            }
             Exit();
         }
 
-        private static void ConnectToServer()
+        private static IPAddress PromptForIP()
+        {
+            Console.WriteLine("Enter server ip address: ");
+            IPAddress serverIP;
+            try
+            {
+                serverIP = IPAddress.Parse(Console.ReadLine());
+            }
+            catch(Exception e)
+            {
+                serverIP = IPAddress.None;
+            }
+            return serverIP;
+        }
+
+        private static void ConnectToServer(IPAddress serverIP)
         {
             int attempts = 0;
 
@@ -31,7 +50,7 @@ namespace FileTransferererClient
                     attempts++;
                     Console.WriteLine("Connection attempt " + attempts);
                     // Change IPAddress.Loopback to a remote IP to connect to a remote host.
-                    ClientSocket.Connect(IPAddress.Loopback, PORT);
+                    ClientSocket.Connect(serverIP, PORT);
                 }
                 catch (SocketException)
                 {
